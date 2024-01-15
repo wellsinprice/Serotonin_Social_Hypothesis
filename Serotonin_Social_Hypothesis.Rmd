@@ -1,0 +1,181 @@
+---
+title: "Hypothesis Testing: Effects of Altering Serotonin Levels for Social Interactions in Mice"
+author: "Wellsin Price"
+date: "2024/01/15"
+mainfont: Monaco
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 2
+  html_document:
+    highlight: tango
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+    df_print: kable
+editor_options:
+  markdown:
+    wrap: sentence
+---
+
+```{r, include=FALSE}
+# Do not alter // Functional
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, warning=FALSE, fig.width=16/2, fig.height=9/2)
+
+# Set seed value for randomness
+set.seed(88)
+```
+
+# Background {.unnumbered}
+
+Install necessary packages for the analysis.
+```{r}
+if(!require(tidyverse)){
+  install.packages("tidyverse")
+}
+if(!require(infer)){
+  install.packages("infer")
+}
+if(!require(moderndive)){
+  install.packages("moderndive")
+}
+if(!require(Stat2Data)){
+  install.packages("Stat2Data")
+}
+```
+
+Load the installed packages
+```{r}
+library(conflicted) # May need to install in cases of package conflicts
+library(tidyverse)
+library(infer)
+library(moderndive)
+library(Stat2Data)
+```
+
+**Behavioral Effects of Serotonin in Mice Models**
+
+Description: Hypothesis test exploring the effects of altering serotonin levels in social behavior of mice.
+Format: A data frame with 48 observations on the following 3 variables.
+Study Details: Serotonin is a chemical that influences mood balance in humans.
+But how does it affect mice?
+Scientists genetically altered mice by "knocking out" the expression of a gene, tryptophan hydroxylase 2 (Tph2), that regulates serotonin production.
+With careful breeding, the scientists produced three types of mice that we label as "Minus" for Tph2-/-, "Plus" for Tph2+/+, "Mixed" for Tph2+/-.
+The variable Genotype records Minus/Plus/Mixed.
+The variable Contacts is the number of social contacts that a mouse had with other mice during an experiment and the variable Sex is "M" for males and "F" for females.
+Source: Beis D, Holzwarth K, Flinders M, Bader M, Wohr M, Alenina N., (2015) "Brain serotonin deficiency leads to social communication deficits in mice," Biol.
+Lett.
+11:20150057.
+<http://dx.doi.org/10.1098/rsbl.2015.0057>
+
+```{r}
+# Load dataframe
+data("MouseBrain")
+```
+
+Three Variables:
+
+Contacts Number of social contacts the mouse had during the experiment
+
+Sex F=female or M=male
+
+Genotype Minus, Mixed, or Plus (see description below)
+
+Using hypothesis testing, the following questions will be explored:
+1.  Is there a difference in male and female mouse social contacts?
+2.  Is there a difference in genotype on social contacts for two conditions using t-tests?
+3.  Is there a difference in genotype on social contacts for all three conditions using regression?
+
+# 1: Sex differences in social behavior of mice
+
+## Exploratory Data Analysis
+
+```{r}
+# Average of social contacts in the dataframe differentiated by sex
+MouseBrain %>%
+  group_by(Sex) %>%
+  summarize(social_mean=mean(Contacts))
+```
+```{r}
+ggplot(MouseBrain, aes(x=Sex, y=Contacts, fill=Sex)) +
+  geom_boxplot() +
+  labs(x="Number of Contacts by sex")
+```
+
+## Null Hypothesis
+
+In order to consider differences as generalizations, a hypothesis test needs to be conducted.
+The first step is to declare the hypothesis, starting with the null hypothesis which is the status quo. Thus, the null hypothesis states that there's no difference in mean contacts between the sexes at the population level.
+Alternatively, there is a difference at this level between the sexes.
+
+In mathematical notation, it can be described as the following equations:
+$$\begin{aligned} H_0:&\mu_{male} = \mu_{female} \\\ \mbox{vs }H_A:& \mu_{male} \neq \mu_{female} \end{aligned}$$ 
+
+$$\begin{aligned} H_0:&\mu_{male} - \mu_{female} = 0 \\\ \mbox{vs }H_A:& \mu_{male} - \mu_{female} \neq 0 \end{aligned}$$
+
+## Testing the hypothesis
+The 'infer' package is utilized to conduct the hypothesis test.
+### Step 1: Calculate the observed difference
+```{r}
+# Calculates the observed difference between the sexes
+obs_diff_SC_sex <- MouseBrain %>%
+  specify(Contacts ~ Sex) %>%
+  calculate(stat="diff in means", order = c("F","M"))
+
+obs_diff_SC_sex
+```
+
+### Step 2: Generate null distribution of $\delta$
+
+```{r}
+# Generates simulated values based on original dataset
+SC_in_null_sim <- MouseBrain %>%
+  specify(Contacts ~ Sex) %>%
+  hypothesize(null="independence") %>%
+  generate(reps=5000,type='permute') # generates 5,000 times the original 48 rows
+```
+
+### Step 3: Calculate the differences under the null
+```{r}
+SC_diff_in_null <- SC_in_null_sim %>%
+  calculate(stat="diff in means", order=c("F","M"))
+
+SC_diff_in_null %>%
+  slice(1:5)
+```
+
+### Step 4: Visualize comparison of observed vs null distribution of $\delta$
+```{r}
+visualize(SC_diff_in_null) +
+  shade_p_value(obs_stat=obs_diff_SC_sex, direction="both") +
+  labs(x="Difference in mean contacts for males and females",y="Count",
+       title="Null distribution of differences in male and female contacts",
+       subtitle="Actual difference observed is marked in red"
+       )
+```
+
+### Step 5: Calculate p-value
+```{r}
+SC_diff_in_null %>%
+  get_pvalue(obs_stat=obs_diff_SC_sex, direction="both")
+```
+
+### Step 6: Calculate confidence interval
+```{r}
+SC_diff_ci <- MouseBrain %>%
+  specify(Contacts ~ Sex) %>%
+  generate(reps=5000, type="bootstrap") %>%
+  calculate(stat="diff in means", order=c("F","M")) %>%
+  get_confidence_interval(level=0.95)
+SC_diff_ci
+```
+
+### Finalize with a t-test
+```{r}
+t.test(Contacts ~ Sex, var.equal=TRUE, data=MouseBrain)
+```
+
+# 2: Effect of Serotonin Genotype on Behavior
