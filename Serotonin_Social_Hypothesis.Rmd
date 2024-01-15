@@ -91,7 +91,7 @@ Using hypothesis testing, the following questions will be explored:
 
 # 1: Sex differences in social behavior of mice
 
-## Exploratory Data Analysis
+## Exploratory Data Analysis (EDA)
 
 ```{r}
 # Average of social contacts in the dataframe differentiated by sex
@@ -179,3 +179,33 @@ t.test(Contacts ~ Sex, var.equal=TRUE, data=MouseBrain)
 ```
 
 # 2: Effect of Serotonin Genotype on Behavior
+As we've seen (and likely may have predicted), the analysis differentiating the sexes proved to not be statistically significant. Thus, the alternative hypothesis is rejected and the null remains. This now turns our attention to the genetics of serotonin: will the expression differentials of Tph2 result in meaningful insights?
+In this analysis 'Contacts' represents the outcome variable, and 'Genotype' is the predictor with three levels of expression: "Minus" (-/-), "Mixed" (-/+), and "Plus" (+/+).
+Significantly, the Minus condition will be of interest due to the lack of Tph2 expression.
+In this analysis, the Minus and Mixed conditions will be compared for significance in social behaviors.
+
+## EDA
+```{r}
+SC_geno_avg <- MouseBrain %>%
+  group_by(Genotype) %>%
+  summarize(SC_total=mean(Contacts))
+
+SC_geno_avg
+```
+```{r}
+ggplot(MouseBrain, aes(x=Genotype,y=Contacts)) +
+  geom_boxplot(fill="darkslateblue") +
+  labs(title="Contact Scores Based on Altered Genotype",
+       x="Genotype",y="Contact")
+```
+
+## Transforming the Dataset
+
+As we are only exploring Minus and Mixed conditions, the dataset must be transformed to exclude the Plus condition.
+```{r}
+MouseBrain_minus_mixed <- MouseBrain %>%
+  dplyr::filter(Genotype!="Plus")
+```
+
+## Stating the Null Hypothesis
+The Null Hypothesis in this analysis states that there is no observable difference between Minus and Mixed conditions, whereas the alternative states that there is a statistically significant effect on social contact scores.
